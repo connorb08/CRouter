@@ -1,12 +1,11 @@
 import { CResponse } from "./CResponse";
-import { CloudflareContext, CloudflareEnv, CRouterHandler, NextHandler } from "./types";
+import { CRouterHandler, NextHandler } from "./CTypes";
 
 interface RouteHandler {
     path: string,
     method: string,
     handler: CRouterHandler
 }
-
 
 export default class CRouter {
 
@@ -24,7 +23,7 @@ export default class CRouter {
         this.routeArray.push({path, method: 'POST', handler});
     }
 
-    public handle = (req: Request, cf? : {env?: CloudflareEnv, ctx?: CloudflareContext}) : Response | Promise<Response> => {
+    public handle = (req: Request, cf? : {env?: unknown, ctx?: unknown}) : Response | Promise<Response> => {
 
         const req_path = new URL(req.url).pathname
         const res = new CResponse();
@@ -40,8 +39,11 @@ export default class CRouter {
 
         for (const node of matched_nodes) {
 
-            const n: NextHandler = (data?: any) => {console.log(data)}
-            const r = node.handler(req, res, {env, ctx, next: n});
+            var nextData: any;
+            const n: NextHandler = (data?: any) => {
+                nextData = data;
+            }
+            const r = node.handler(req, res, {env, ctx, next: n, nextData});
             
             // Return if response is returned, else pass to next handler
             if (r !== undefined) {
