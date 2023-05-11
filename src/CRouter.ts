@@ -7,25 +7,31 @@ interface RouteHandler {
     handler: CRouterHandler
 }
 
+type HandlerOptions = {};
+
 export default class CRouter {
 
     private routeArray: RouteHandler[] = [];
 
-    public all = (path: string, handler: CRouterHandler) => {
+    public all = (path: string, handler: CRouterHandler, options?: HandlerOptions) => {
         this.routeArray.push({path, method: '*', handler});
     }
 
-    public get = (path: string, handler: CRouterHandler) => {
+    public get = (path: string, handler: CRouterHandler, options?: HandlerOptions) => {
         this.routeArray.push({path, method: 'GET', handler});
     }
 
-    public post = (path: string, handler: CRouterHandler) => {
+    public post = (path: string, handler: CRouterHandler, options?: HandlerOptions) => {
         this.routeArray.push({path, method: 'POST', handler});
     }
 
-    public handle = (req: Request, cf? : {env?: unknown, ctx?: unknown}) : Response | Promise<Response> => {
+    public delete = (path: string, handler: CRouterHandler, options?: HandlerOptions) => {
+        this.routeArray.push({path, method: 'DELETE', handler});
+    }
 
-        const req_path = new URL(req.url).pathname
+    public handle = async (req: Request, cf? : {env?: unknown, ctx?: unknown}) : Promise<Response> => {
+
+        const req_path = new URL(req.url).pathname;
         const res = new CResponse();
         const env = cf?.env;
         const ctx = cf?.ctx;
@@ -37,16 +43,20 @@ export default class CRouter {
             else return false;
         })
 
+        // Local storage passed by next()
+        var local: any[] = [];
         for (const node of matched_nodes) {
 
-            var nextData: any;
-            const n: NextHandler = (data?: any) => {
-                nextData = data;
+            const next: NextHandler = (data?: any) => {
+                local.unshift(data);
             }
-            const r = node.handler(req, res, {env, ctx, next: n, nextData});
+            const r = await node.handler(req, res, {env, ctx, next, local});
             
             // Return if response is returned, else pass to next handler
-            if (r !== undefined) {
+            if (r instanceof CResponse) {
+                return r.send();
+            }
+            else if (r instanceof Response) {
                 return r;
             }
             else {

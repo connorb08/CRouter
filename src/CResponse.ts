@@ -1,31 +1,33 @@
 export class CResponse {
 
-    private BodyInit : BodyInit | null | undefined;
-    private ResponseInit : ResponseInit;
+    private Body : BodyInit;
+    private Response : ResponseInit;
 
     constructor() {
-        this.BodyInit = "";
-        this.ResponseInit = {};
+        this.Body = "";
+        this.Response = {};
     }
 
     public status(status: number) {
-        this.ResponseInit.status = status;
+        this.Response.status = status;
         return this;
     }
 
     public body(body?: BodyInit) {
-        this.BodyInit = body;
+        if (body) {
+            this.Body = body;
+        }
         return this;
     }
 
     public send(body?: BodyInit, response?: ResponseInit) {
         if (body) {
-            this.BodyInit = body;
+            this.Body = body;
         }
         if (response) {
-            this.ResponseInit = response;
+            this.Response = response;
         }
-        return new Response(this.BodyInit, this.ResponseInit)
+        return new Response(this.Body, this.Response);
     }
 
 }

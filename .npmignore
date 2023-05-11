@@ -1,1 +1,8 @@
 src/
+test/
+build/
+.editorconfig
+.gitattributes
+.yarnrc.yml
+jest.config.json
+.yarn/
