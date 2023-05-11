@@ -1,17 +1,16 @@
 import { build } from "esbuild";
-import glob from "tiny-glob";
 import pkg from 'npm-dts';
 const { Generator } = pkg;
 
 new Generator({
-  entry: 'src/CTypes.ts',
+  entry: 'src/index.ts',
   output: 'dist/index.d.ts',
 }).generate();
 
-const entryPoints = (await glob("./src/*.ts")).filter(e => !e.includes('CTypes.ts'));
+// const entryPoints = (await glob("./src/*.ts")).filter(e => !e.includes('CTypes.ts'));
 // entryPoints = entryPoints
 const config = {
-  entryPoints,
+  entryPoints: ['src/index.ts'],
   bundle: true,
   minify: true
 };
@@ -25,7 +24,7 @@ const config = {
 
 build({
   ...config,
-  outdir: "dist",
+  outfile: 'dist/index.js',
   platform: 'neutral', // for ESM
   format: "esm"
 });
