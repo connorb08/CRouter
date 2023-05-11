@@ -7,8 +7,6 @@ new Generator({
   output: 'dist/index.d.ts',
 }).generate();
 
-// const entryPoints = (await glob("./src/*.ts")).filter(e => !e.includes('CTypes.ts'));
-// entryPoints = entryPoints
 const config = {
   entryPoints: ['src/index.ts'],
   bundle: true,
