@@ -1,10 +1,11 @@
 {
-  "include": ["**/*.ts"],
+  "include": ["**/*.ts", "**/*.d.ts"],
   "exclude": ["node_modules", "dist"],
   "compilerOptions": {
+    "types": ["node", "jest"],
     "target": "esnext",
     "module": "esnext",
-    "moduleResolution": "classic",
+    "moduleResolution": "node",
     "outDir": "./dist",
     "strict": true,
     "esModuleInterop": true,

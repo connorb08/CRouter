@@ -13,13 +13,6 @@ const config = {
   minify: true
 };
 
-// build({
-//   ...config,
-//   platform: 'node', // for CJS
-//   outfile: "dist/index.js",
-//   outdir
-// });
-
 build({
   ...config,
   outfile: 'dist/index.js',
