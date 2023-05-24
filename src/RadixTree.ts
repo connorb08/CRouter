@@ -2,130 +2,165 @@ import { CResponse } from "./CResponse";
 import { CCallback } from "./CTypes";
 import { minimatch } from "minimatch";
 
-export interface CRadixTreeNode {
+
+/**
+ * @class CRadixTreeNode
+ * @description Node class for radix tree
+ */
+export class CRadixTreeNode {
 	// path: string
 	// index: number
 	// http handler
 	// http info
 	// http method??
 	// store handler and whatever info in an array, use node index to find value in array. only use tree for searching...
-
-	handlerQueue: {
+	public children: CRadixTreeNode[] = [];
+	public pathMatcher: string; // use globs and regex?
+	public handlerQueue: {
 		callback: CCallback;
 		method: string;
-	}[];
+	}[];;
 
-	regexMatcher: string;
-	edges: {
-		[key: string]: CRadixTreeNode;
-	};
-}
+	constructor(pathMatcher: string, handlerQueue: { callback: CCallback; method: string }[] = []) {
+		this.pathMatcher = pathMatcher;
+		this.handlerQueue = handlerQueue;
+	}
 
-export interface CRadixTreeEdge {
-	value: string;
-	targetNode: CRadixTreeNode;
-}
+	public async runQueue(req: Request, res: CResponse) {
 
-export class CRadixTree {
-	// private NodeQueue: [] = []
-
-	private hasChildren = (node: CRadixTreeNode): boolean => {
-		return Object.keys(node.edges).length > 0;
-	};
-	private root: CRadixTreeNode = {
-		handlerQueue: [],
-		regexMatcher: "",
-		edges: {},
-	};
-
-	public insert(path: string, node: CRadixTreeNode) {
-		let searchNode: CRadixTreeNode | null = this.root;
-		let charactersFound = 0;
-
-		while (true) {
-			// Node is an exact match, merge handlerQueue
-			if (charactersFound === path.length) {
-				for (const handler of node.handlerQueue) {
-					searchNode.handlerQueue.push({
-						callback: handler.callback,
-						method: handler.method,
-					});
-				}
-				return;
-			}
-
-			// Node is not an exact match
-			if (this.hasChildren(searchNode)) {
-				// Look for matching edge
-
-				for (const edge in searchNode.edges) {
-					if (path.slice(charactersFound).startsWith(edge)) {
-						// Found a matching edge, traverse further and continue loop
-						searchNode = searchNode.edges[edge];
-						charactersFound += edge.length;
-						continue;
-					} else if (edge.startsWith(path.slice(charactersFound))) {
-						const tempNode = searchNode;
-						searchNode = node;
-						const lengthDifference = (searchNode.edges[edge.slice(path.length)] = tempNode);
-						return;
-						// swap the two nodes
-						// insert new node is shorter than the current node, replace current node with the new node, and add a new path to the old node
+		for (let i = 0; i < this.handlerQueue.length; i++) {
+			const handler = this.handlerQueue[i];
+			if (handler.method === req.method || handler.method === "*") {
+				try {
+					const result = await handler.callback(req, res, () => {})
+					if (result) {
+						return result;
 					} else {
-						// no matching edge found, insert a new edge here
-						searchNode.edges[path.slice(charactersFound)] = node;
-						return;
+						continue;
 					}
+				} catch (error) {
+					console.log("error");
+					console.error(error);
+					// return 500 response??
 				}
-			} else {
-				// If there are no edges, we can just add an edge to the node
-				searchNode.edges[path.slice(charactersFound)] = node;
-				return;
 			}
+
 		}
 	}
 
-	public async lookup(req: Request, res: CResponse): Promise<void | CResponse> {
-		let searchNode: CRadixTreeNode | null = this.root;
-		let charactersFound = 0;
-		const path = new URL(req.url).pathname;
+	public matches(path: string): boolean {
+		if (minimatch(path, this.pathMatcher)) {
+			return true;
+		} else {
+			return false;
+		}
+	}
 
-		console.log(path);
-		console.log(searchNode);
-		let continueLooping = true;
+	/**
+	 * Check if node is a leaf
+	 * @returns {boolean}
+	 */
+	public isLeaf(): boolean {
+		return this.children.length === 0;
+	}
 
-		for (const handler of searchNode.handlerQueue) {
-			if (handler.method === req.method || handler.method === "*") {
-				const result = await handler.callback(req, res, () => {});
-				if (result) {
-					return result;
-				}
+	/**
+	 * Adds a child to the node
+	 * @param child CRadixTreeNode to be added as a child
+	 * @returns {void}
+	 */
+	public addChild(child: CRadixTreeNode): void {
+		this.children.push(child);
+	}
+
+	/**
+	 * Check if the insertNode should be merged 
+	 * @param {CRadixTreeNode} insertNode the node to check if it should be merged
+	 * @returns {boolean} true if the pathMatcher is the same
+	 */
+	public shouldMerge(insertNode: CRadixTreeNode): boolean {
+		if (this.pathMatcher === insertNode.pathMatcher) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	/**
+	 * Merges the handlerQueue of the insertNode into the handlerQueue of this node
+	 * @param {CRadixTreeNode} insertNode the node to be merged into this node
+	 * @returns {void}
+	 */
+	public mergeNode(insertNode: CRadixTreeNode): void {
+		for (const handler of insertNode.handlerQueue) {
+			this.handlerQueue.push(handler);
+		}
+	}
+
+}
+
+export class CRadixTree {
+
+	private root: CRadixTreeNode
+
+	// Allow private properties to be accessed during unit testing
+	constructor(_testRoot?: CRadixTreeNode) {
+		this.root = _testRoot || new CRadixTreeNode("/");
+	}
+
+	public insert(insertNode: CRadixTreeNode, searchNode: CRadixTreeNode = this.root): unknown {
+		// let searchNode: CRadixTreeNode | null = this.root;
+		// let charactersFound = 0;
+
+		// insert should only happen once
+
+		// merge nodes if they have the same matcher
+		if (searchNode.shouldMerge(insertNode)) {
+			searchNode.mergeNode(insertNode);
+			return;
+		}
+
+		// if the search node is a leaf, and should not be merged, add new node as a child
+		if (searchNode.isLeaf()) {
+            searchNode.addChild(insertNode);
+			return;
+        }
+
+		// else :
+		// check if seaerch node has children that should be traversed - return recursively if so
+		// if they dont, add new node as a child
+		for (let i = 0; i < searchNode.children.length; i++) {
+			const child = searchNode.children[i];
+
+			// maybe not this??
+			if (child.matches(insertNode.pathMatcher)) {
+				return this.insert(insertNode, child);
 			}
 		}
 
-		// if user is at a node, run the callback functions
-		while (this.hasChildren(searchNode) && continueLooping) {
-			// console.log("loop1")
+		// add new node as a child
+		searchNode.addChild(insertNode);
+		return;
+		// return
+    }
 
-			// let response: null
-			for (const edge in searchNode.edges) {
-				if (minimatch(path.slice(charactersFound), edge)) {
-					// glob matches
-					console.log("match!");
-					// navigate to node --- not necessarily
-					// searchNode = searchNode.edges[edge];
-					// charactersFound += edge.length;
-					for (const handler of searchNode.handlerQueue) {
-						if (handler.method === req.method || handler.method === "*") {
-							const result = await handler.callback(req, res, () => {});
-							if (result) {
-								return result;
-							}
-						}
-					}
-					// break;
-				}
-			}
-		}
+	public lookup(path: string, searchNode: CRadixTreeNode = this.root) {
+		throw new Error("lookup: not implemented");
+	}
+
+}
+
+
+/** Class used for testing CRadixTree */
+export class _CRadixTreeTester extends CRadixTree {
+
+	/**
+	 * @property _root The root node of the test tree
+	 */
+	public _root: CRadixTreeNode;
+	constructor() {
+		const _root = new CRadixTreeNode("/");
+		super(_root);
+		this._root = _root;
 	}
 }

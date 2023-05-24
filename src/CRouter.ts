@@ -1,70 +1,57 @@
 import { CResponse } from "./CResponse";
 import { CCallback, CRouterInterface, RoutePath } from "./CTypes";
-import { CRadixTree, CRadixTreeNode } from "./RadixTree";
+import { CRadixTree, CRadixTreeNode, _CRadixTreeTester } from "./RadixTree";
 
+
+/**
+ * @class CRouter
+ * @description Router class for handling requests
+ * @implements CRouterInterface
+ * 
+ */
 export default class CRouter implements CRouterInterface {
-	private routeTree = new CRadixTree();
-	constructor() {}
+	
+	/**
+	 * @property routeTree
+	 */
+	protected routeTree: CRadixTree;
 
-	public async route(req: Request): Promise<Response> {
-		try {
-			const res = new CResponse();
-			const result = await this.routeTree.lookup(req, res);
-
-			if (result) {
-				return result.getResponseObject();
-			} else {
-				console.log("No route found");
-				throw new Error("No route found");
-			}
-		} catch (error) {
-			console.log(error);
-			if (error instanceof Error && error.message === "error: request fell through router") {
-				return new Response("Not Found", { status: 404 });
-			}
-			throw error;
-		}
-
-		// console.log(res);
+	/**
+	 * 
+	 * @param _testTree Optional parameter for testing purposes
+	 */
+	constructor(_testTree?: _CRadixTreeTester) {
+		this.routeTree = _testTree || new CRadixTree();
 	}
 
+	public async route(req: Request): Promise<Response> {
+		throw new Error("Method not implemented.");
+	}
+
+	/**
+	 * 
+	 * @param path String or array of strings to be passed to the radix tree
+	 * @param callback Callback function to be called when the path is matched
+	 * @param callbacks Additonal callbacks to be called when the path is matched
+	 * @returns void
+	 * 
+	 * @description Adds a route (or series of routes) to the router that match any HTTP method
+	 */
 	public all(path: RoutePath, callback: CCallback, ...callbacks: CCallback[]): void {
 		const p = path.toString();
 
 		if (path instanceof Array) {
 			for (const p of path) {
-				this.routeTree.insert(p, {
-					regexMatcher: p,
-					handlerQueue: [{ method: "*", callback }],
-					isLeaf: true,
-					edges: {},
-				} as CRadixTreeNode);
-
+				this.routeTree.insert(new CRadixTreeNode(p, [{ method: "*", callback }]))
 				for (const cb of callbacks) {
-					this.routeTree.insert(p, {
-						regexMatcher: p,
-						handlerQueue: [{ method: "*", callback: cb }],
-						isLeaf: false,
-						edges: {},
-					} as CRadixTreeNode);
+					this.routeTree.insert(new CRadixTreeNode(p, [{ method: "*", callback: cb }]))
 				}
 			}
 		} else {
-			this.routeTree.insert(p, {
-				regexMatcher: p,
-				handlerQueue: [{ method: "*", callback }],
-				isLeaf: true,
-				edges: {},
-			} as CRadixTreeNode);
-
-			for (const cb of callbacks) {
-				this.routeTree.insert(p, {
-					regexMatcher: p,
-					handlerQueue: [{ method: "*", callback: cb }],
-					isLeaf: false,
-					edges: {},
-				} as CRadixTreeNode);
-			}
+			this.routeTree.insert(new CRadixTreeNode(p, [{ method: "*", callback }]))
+				for (const cb of callbacks) {
+					this.routeTree.insert(new CRadixTreeNode(p, [{ method: "*", callback: cb }]))
+				}
 		}
 		return;
 	}
@@ -138,4 +125,25 @@ export default class CRouter implements CRouterInterface {
 	public unsubscribe(path: RoutePath, callback: CCallback, ...callbacks: CCallback[]): void {
 		throw new Error("Method not implemented.");
 	}
+}
+
+
+
+/** Class for testing the CRouter class */
+export class _CRouterTester extends CRouter {
+
+	/**
+	 * @property _routeTree The radix tree used by the router for testing purposes
+	 */
+	public _routeTree: _CRadixTreeTester;
+	
+	/**
+	 * Should only be used for testing
+	 */
+	constructor() {
+		const _routeTree = new _CRadixTreeTester();
+		super(_routeTree);
+		this._routeTree = _routeTree;
+	}
+
 }
